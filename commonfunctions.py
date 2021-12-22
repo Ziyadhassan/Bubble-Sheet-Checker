@@ -1,22 +1,16 @@
 
-
+from skimage.morphology import binary_erosion, binary_dilation, binary_closing, skeletonize, thin
+from skimage.measure import find_contours
+from skimage.transform import rescale, resize, downscale_local_mean
+from skimage.feature import canny
+from skimage.filters import gaussian,median,threshold_local
+from matplotlib.pyplot import bar
+from skimage.exposure import histogram
+from skimage.color import rgb2gray
+import numpy as np
 import skimage.io as io
 import matplotlib.pyplot as plt
-import numpy as np
-from skimage.exposure import histogram
-from matplotlib.pyplot import bar
-from skimage.color import rgb2gray,rgb2hsv
-
-# Convolution:
-from scipy.signal import convolve2d
-from scipy import fftpack
-import math
-
-from skimage.util import random_noise
-from skimage.filters import median
-from skimage.feature import canny
-from skimage.measure import label
-from skimage.color import label2rgb
+import os
 
 
 # Edges

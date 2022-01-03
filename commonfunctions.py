@@ -12,7 +12,6 @@ import skimage.io as io
 import matplotlib.pyplot as plt
 import os
 
-
 # Edges
 from skimage.filters import sobel_h, sobel, sobel_v,roberts, prewitt
 

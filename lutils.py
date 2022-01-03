@@ -29,5 +29,3 @@ def ring_se(inner_rad, outer_rad):
   disc[outer_rad-inner_rad:outer_rad+inner_rad+1,
        outer_rad-inner_rad:outer_rad+inner_rad+1] -= disk(inner_rad)
   return disc
-
-print(ring_se(2, 3))

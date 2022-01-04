@@ -8,6 +8,8 @@ from skimage.filters import threshold_local
 import lutils
 import functools
 
+import argparse
+
 file = open('outputs','w')
 
 def get_y_dim(stripped_image):
@@ -89,10 +91,26 @@ def sort_contours(cnts, method="top-to-bottom"):
 	# return the list of sorted contours and bounding boxes
 	return (cnts, boundingBoxes)
 
+
+def getId (idImageBinary,idImage):
+    cnts,hei = cv.findContours(idImageBinary, cv.RETR_EXTERNAL,	cv.CHAIN_APPROX_SIMPLE)
+    cnts = sort_contours(cnts, method="left-to-right")[0]
+    ## name , id
+    letters = []
+    print('cnts : ',len(cnts))
+    for c in cnts:
+        (x, y, w, h) = cv.boundingRect(c)
+        asceptRatio = w / float(h)
+        cv.rectangle(idImage,(x,y),(x+w,y+h),(0,255,0),1)
+        character = idImage[y:y+h,x:x+w]
+        #entities.append(rect) 
+        cv.imshow("letters", cv.resize(character,(600,800)) )
+        cv.waitKey(0)
+
 ######################### start program #######################
-images = ["imgs/10.jpeg","imgs/11.jpg"]
+images = ["imgs/10.jpeg","imgs/11.jpg","imgs/12.jpeg"]
 ## take image
-image = cv.imread(images[1])
+image = cv.imread(images[2])
 orignalImage = image.copy()
 ## no need for resize
 # orignalImage = cv.resize(image,(800,800)) #resizing because opencv does not work well with bigger images
@@ -106,9 +124,9 @@ grayImage = cv.cvtColor(orignalImage, cv.COLOR_BGR2GRAY)
 
 # get histogram
 dst = cv.calcHist(grayImage, [0], None, [256], [0, 256])
-plt.hist(grayImage.ravel(), 256, [0, 256])
-plt.title('Histogram for gray scale image')
-plt.show()
+# plt.hist(grayImage.ravel(), 256, [0, 256])
+# plt.title('Histogram for gray scale image')
+# plt.show()
 
 # make gaussian blur
 blur = cv.GaussianBlur(grayImage, (5, 5), 0)
@@ -179,9 +197,9 @@ else:
 ## histogram of the examPaper itself
 cv.imshow("bubble group", cv.resize(examPaper, (600, 800)))
 cv.waitKey(0)
-plt.hist(examPaper.ravel(), 256, [0, 256])
-plt.title('Histogram for gray scale image')
-plt.show()
+# plt.hist(examPaper.ravel(), 256, [0, 256])
+# plt.title('Histogram for gray scale image')
+# plt.show()
 
 
 """
@@ -228,10 +246,56 @@ cv.waitKey(0)
 
 ## get the sripts and (biggest sripts is the bubbles group)
 upper, lower = get_y_dim(sriptedImage)
+headerBinary = thresh1[:upper,:]
+header = orignalImage[:upper,:]
 thresh1 = thresh1[upper:lower, :]
 striptedImage = orignalImage[upper:lower, :]
 cv.imshow("stripted", thresh1)
 cv.waitKey(0)
+
+cv.imshow("idImage", header)
+cv.waitKey(0)
+
+######################  get id ##################################
+cnts,hei = cv.findContours(headerBinary, cv.RETR_EXTERNAL,
+	cv.CHAIN_APPROX_SIMPLE)
+
+cnts = sorted(cnts, key=cv.contourArea, reverse=True)[:2]
+cnts = sort_contours(cnts, method="left-to-right")[0]
+
+## assume that name is allows at the left of the id
+print(cnts)
+## name , id
+entities = []
+for c in cnts:
+    (x, y, w, h) = cv.boundingRect(c)
+    asceptRatio = w / float(h)
+    cv.rectangle(header,(x,y),(x+w,y+h),(0,255,0),1)
+    #rectBinary = headerBinary[y:y+h,x:x+w]
+    f=5
+    rectBinary = headerBinary[min(y+f,headerBinary.shape[0]):min(y+h-f,headerBinary.shape[0]),max(x+f,0):max(x+w-f,0)]
+    # rect =  header[y:y+h,x:x+w]
+    rect =  header[min(y+f,headerBinary.shape[0]):min(y+h-f,headerBinary.shape[0]),max(x+f,0):max(x+w-f,0)]
+    entities.append((rectBinary,rect)) 
+    cv.imshow("Bigs", rect)
+    cv.waitKey(0)
+
+nameBinary = entities[0][0]
+name = entities[0][1]
+idBinary = entities[1][0]
+id = entities[1][1]
+
+getId(idBinary,id)
+#print(idBinary.dtype)
+#print(idBinary.shape)
+
+
+########################################################
+
+
+
+
+
 
 ## dilate the bubbles to make each group as contour
 SE = np.ones((20, 20))
@@ -357,7 +421,6 @@ for bubble in cnts:
             # imgBigContour = drawRectangle(wrap[0], c, 2)
             # cv.imshow("Big Contours",wrap[0])
             # cv.waitKey(0)
-            #image = cv.rectange(wraps[0], (x +w//2,y+h//2), 10, (255, 0, 0), 1)
             #image = cv.rectangle(wraps[0],(x +w//2,y+h//2),(w,h),(0,255,0),2)
             questionCnts.append(bubble)
             # draw bubbles contour
@@ -438,6 +501,18 @@ for (q, i) in enumerate(np.arange(0, len(questionCnts), 5)):
         iteration += 1
 
 
+
+
+# for con in contours:
+#     # approximate the contour
+#     peri = cv.arcLength(con, True)
+#     if cv.contourArea(con) < (striptedImage.shape[0]*striptedImage.shape[1]) // 10:
+#         break
+#     approx = cv.approxPolyDP(con, 0.02 * peri, True)
+#     # if our approximated contour has four points, then we
+#     # can assume that we have found our screen
+#     if len(approx) == 4:
+#         BubblesGroup.append(approx)
 
 
 file.close()

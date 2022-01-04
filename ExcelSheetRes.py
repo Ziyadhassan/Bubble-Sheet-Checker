@@ -22,7 +22,7 @@ with open('./results.csv', 'a', newline='') as excel:
             result.append('WRONG')
     writer.writerow(result)
     read_file = pd.read_csv ('./results.csv')
-    read_file.to_excel ('./res.xlsx', index = None, header=FALSE)
+    read_file.to_excel ('./res.xlsx', index = None, header=None)
 
 """
 # Open an Excel workbook

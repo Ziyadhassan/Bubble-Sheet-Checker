@@ -8,6 +8,7 @@ from lutils import ptile,ring_se
 from skimage.filters import threshold_local
 import lutils
 import functools
+import easyocr
 
 def get_y_dim(stripped_image):
     j = stripped_image.shape[1] // 2

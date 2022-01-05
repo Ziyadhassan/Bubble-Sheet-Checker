@@ -19,80 +19,6 @@ import json
 file = open('outputs','w')
 reader = easyocr.Reader(['en']) # this needs to run only once to load the model into memory
 
-def getThreshold(img):
-    # 1
-    # img *= 255
-    #img=cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    if np.max(img) <= 1:
-        img = img*255
-    img = img.astype('uint8')
-    # 2
-    H = np.histogram(img, list(range(0, 256)), 'dtype')[0]
-
-    # 3
-    sum_gray_levels = sum(grayLevel * value for grayLevel,
-                          value in enumerate(H))
-    sum_pixels = np.cumsum(H)[-1]
-    T_init = round(sum_gray_levels/sum_pixels)
-
-    T_old = T_init
-    T_new = -100
-
-    while(abs(T_old - T_new) > 0.001):
-        if T_new == -100:
-            T_new = T_old
-        else:
-            T_old = T_new
-        # 4
-        average_lower = 0.5
-        count_lower = 0.5
-        for grayLevel in range(0, int(T_old)):
-            average_lower += grayLevel * H[grayLevel]
-            count_lower += H[grayLevel]
-        average_lower = round(average_lower / count_lower)
-
-        average_higher = 0.5
-        count_higher = 0.5
-        for grayLevel in range(int(T_old), len(H)):
-            average_higher += grayLevel * H[grayLevel]
-            count_higher += H[grayLevel]
-
-        average_higher = round(average_higher / count_higher)
-
-        # 5
-        T_new = (average_lower + average_higher)/2
-
-    newImg = img.copy()
-    mask0 = newImg <= T_new
-    mask1 = newImg > T_new
-    newImg[mask0] = 0
-    newImg[mask1] = 1
-    return newImg
-
-
-def recursiveThreshold(oldImg, minS):
-    height, width = oldImg.shape[0:2]
-
-    img00 = oldImg[0:height//2, 0:width//2]
-    img01 = oldImg[0:height//2, width//2:width]
-    img10 = oldImg[height//2:height, 0:width//2]
-    img11 = oldImg[height//2:height, width//2:width]
-
-    if height < minS or width < minS:
-        img00 = getThreshold(img00)
-        img01 = getThreshold(img01)
-        img10 = getThreshold(img10)
-        img11 = getThreshold(img11)
-    else:
-        img00 = recursiveThreshold(img00, minS)
-        img01 = recursiveThreshold(img01, minS)
-        img10 = recursiveThreshold(img10, minS)
-        img11 = recursiveThreshold(img11, minS)
-
-    localImg = np.concatenate(
-        (np.concatenate((img00, img10)), np.concatenate((img01, img11))), axis=1)
-    return localImg
-
 def get_y_dim(stripped_image):
     j = stripped_image.shape[1] // 2
     flips = [0]
@@ -191,13 +117,14 @@ def getId (idImageBinary,idImage):
             character = idImage[y:y+h,x:x+w]
             #entities.append(rect) 
             blank = character
-        
+            cv.imshow("blank",idImage)
+            cv.waitKey(0)
             w,h = w+max(h,w),h+max(h,w)
-            blank = np.pad(blank,((h,h), (w,w)),constant_values=0)
+            blank = np.pad(blank,((h,h), (w,w)),constant_values=np.max(character))
             ratio = 10
             print(h,w)
-            #cv.imshow("blank",cv.resize(blank,(ratio*w,ratio*h)) )
-            #cv.waitKey(0)
+            cv.imshow("blank",cv.resize(blank,(ratio*w,ratio*h)) )
+            cv.waitKey(0)
       
             result = reader.readtext(cv.resize(blank,(ratio*w,ratio*h)),detail=0)
             print(result)
@@ -249,12 +176,34 @@ def checkAnswers(row):
     return valid,index 
 
 
+def setupThreshold (image):
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            if image[i][j] != 0:
+                image[i][j] =0
+            else: 
+                break
 
-   
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]-1,0,-1):
+            if image[i][j] != 0:
+                image[i][j] =0
+            else: 
+                break
+
+    for i in range(1,image.shape[1]):
+        for j in range(image.shape[0]):
+            if image[j][i] != 0:
+                image[j][i] =0
+            else: 
+                break
+    
+    return image
  ######################### start program #######################
 
 
         
+    
 output = {}
 modelAnswer = ['B']*50
 models = []
@@ -363,10 +312,7 @@ if biggest != []:
     examPaper = wrap
     examPaper = cv.cvtColor(examPaper, cv.COLOR_BGR2GRAY)
     ## TODO:
-    # examPaper[0:40,:] = 0  
-    # examPaper[examPaper.shape[0]-40:examPaper.shape[0],:] = 0  
-    # examPaper[:,0:40] = 0  
-    # examPaper[:,examPaper.shape[1]-40:examPaper.shape[1]] = 0  
+    
 
 else:
     examPaper = grayImage
@@ -374,36 +320,14 @@ else:
 
 
 ## histogram of the examPaper itself
-examPaper = recursiveThreshold(examPaper, 40)*255
-examPaper = 255 - examPaper
-examPaper[:,:30] = 0
-examPaper[:,examPaper.shape[1]-30:] = 0
-examPaper[:30,:] = 0
-examPaper[examPaper.shape[0]-30:,:] = 0
-
-
 cv.imshow("bubble group", cv.resize(examPaper, (600, 800)))
 cv.waitKey(0)
-
 cv.destroyAllWindows()
 plt.hist(examPaper.ravel(), 256, [0, 256])
 plt.title('Histogram for gray scale image')
 plt.show()
 
 
-"""
-####   hsv thresholding   (tare2a 7lwa mmkn nst5dmha)
-imgHsv = cv.cvtColor(examPaper, cv.COLOR_BGR2HSV)
-
-# Define lower/upper color
-lower = np.array([0, 0, 180])
-upper = np.array([180, 20, 255])
-
-# Check the region of the image actually with a color in the range defined below
-# inRange returns a matrix in black and white
-bw = cv.inRange(imgHsv, lower, upper)
-print(bw)
-"""
 
 
 #TODO: 3ayzen nzbt el thresholding
@@ -422,6 +346,7 @@ print(bw)
 # cv.waitKey(0)
 # cv.destroyAllWindows()
 
+
 # plt.hist(examPaper[0:examPaper.shape[0]//2] .ravel(), 256, [0, 256])
 # plt.title('Histogram for gray scale image')
 # plt.show()
@@ -431,30 +356,31 @@ print(bw)
 # plt.hist(examPaper[examPaper.shape[0]//2:examPaper.shape[0]] .ravel(), 256, [0, 256])
 # plt.title('Histogram for gray scale image')
 # plt.show()
-#th = lutils.ptile(examPaper, 100-85)
-#thresh1 = np.where(examPaper > th, 255, 0)
-# show_images([thresh1])
+for i in range(20,90,5):
+    th = lutils.ptile(examPaper, 100-i)
+    thresh1 = np.where(examPaper > th, 255, 0)
+    show_images([thresh1])
 
 # ret, thresh1 = cv.threshold(
 #     examPaper, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU,
 # )
-#ret, thresh1 = cv.threshold(examPaper, 135, 255, cv.THRESH_BINARY_INV)
 
+#ret, thresh1 = cv.threshold(examPaper, 150, 255, cv.THRESH_BINARY_INV)
 
+# cv.imshow("before threshold", thresh1)
+# cv.waitKey(0)
+# cv.destroyAllWindows()
 
 #TODO: 
-#setupThreshold()
+thresh1 = setupThreshold(thresh1)
 
-thresh1 = examPaper
+
 cv.imshow("threshold", thresh1)
 cv.waitKey(0)
 cv.destroyAllWindows()
 
 
 
-
-# contours, hirerarchy = cv.findContours(
-#     dilation.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
 
 ## sripts dilation 
@@ -533,7 +459,7 @@ output['id'] = id
 
 
 ## dilate the bubbles to make each group as contour
-SE = np.ones((25, 30))
+SE = np.ones((20, 20))
 # dilation
 dilation = cv.dilate(thresh1, SE, iterations=1)
 cv.imshow("dilation", dilation)
@@ -544,7 +470,6 @@ cv.destroyAllWindows()
 contours, hirerarchy = cv.findContours(
     dilation.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-print(len(contours))
 # sort contours by area
 contours = sorted(contours, key=cv.contourArea, reverse=True)
 
@@ -561,8 +486,8 @@ for con in contours:
     if len(approx) == 4:
         BubblesGroup.append(approx)
 
-BubblesGroup = sort_contours(BubblesGroup, method="left-to-right")[0]
 print(len(BubblesGroup))
+BubblesGroup = sort_contours(BubblesGroup, method="left-to-right")[0]
 wraps = []
 iteration = 1
 for subBubbles in BubblesGroup:
@@ -585,8 +510,7 @@ for subBubbles in BubblesGroup:
     # تصحيييييح
   
     wrapGrey =cv.cvtColor( wrap , cv.COLOR_BGR2GRAY)
-    th4 = recursiveThreshold(wrapGrey,40)*255
-    #ret4, th4 = cv.threshold(wrapGrey, 0, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)
+    ret4, th4 = cv.threshold(wrapGrey, 0, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)
     # find contours in the thresholded image, then initialize
     # the list of contours that correspond to questions
     cv.imshow("number line th4", th4)

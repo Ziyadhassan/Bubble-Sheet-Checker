@@ -4,9 +4,9 @@ import typing
 import numpy as np
 import imutils
 from matplotlib import pyplot as plt
-from lutils import ptile,ring_se
+from utils import ptile,ring_se
 from skimage.filters import threshold_local
-import lutils
+import utils
 import functools
 import easyocr
 
@@ -242,7 +242,7 @@ print(bw)
 
 #TODO: 3ayzen nzbt el thresholding
 ret, thresh1 = cv.threshold(examPaper, 220, 255, cv.THRESH_BINARY_INV)
-#th = lutils.ptile(examPaper, 100-85)
+#th = utils.ptile(examPaper, 100-85)
 #thresh1 = np.where(examPaper > th, 255, 0)
 # show_images([thresh1])
 cv.imshow("threshold", thresh1)

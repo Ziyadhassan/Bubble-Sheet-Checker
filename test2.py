@@ -5,9 +5,9 @@ import cv2 as cv
 import numpy as np
 import imutils
 from matplotlib import pyplot as plt
-from lutils import ptile
+from utils import ptile
 from skimage.filters import threshold_local
-import lutils
+import utils
 import functools
 import easyocr
 import argparse
@@ -408,30 +408,6 @@ print(bw)
 
 #TODO: 3ayzen nzbt el thresholding
 
-# examPaper[0:examPaper.shape[0]//2] = cv.equalizeHist(examPaper[0:examPaper.shape[0]//2])
-# examPaper[examPaper.shape[0]//2:examPaper.shape[0]] = cv.equalizeHist(examPaper[examPaper.shape[0]//2:examPaper.shape[0]])
-# examPaper[0:examPaper.shape[1]//2] = cv.equalizeHist(examPaper[0:examPaper.shape[1]//2])
-# examPaper[examPaper.shape[1]//2:examPaper.shape[1]] = cv.equalizeHist(examPaper[examPaper.shape[1]//2:examPaper.shape[1]])
-# cv.imshow("threshold", examPaper)
-# cv.waitKey(0)
-# cv.destroyAllWindows()
-
-
-# thresh1 = recursiveThreshold(examPaper,examPaper.shape[0]//10)
-# cv.imshow("recursiveThreshold", thresh1)
-# cv.waitKey(0)
-# cv.destroyAllWindows()
-
-# plt.hist(examPaper[0:examPaper.shape[0]//2] .ravel(), 256, [0, 256])
-# plt.title('Histogram for gray scale image')
-# plt.show()
-# plt.hist(examPaper[0:examPaper.shape[1]//2] .ravel(), 256, [0, 256])
-# plt.title('Histogram for gray scale image')
-# plt.show()
-# plt.hist(examPaper[examPaper.shape[0]//2:examPaper.shape[0]] .ravel(), 256, [0, 256])
-# plt.title('Histogram for gray scale image')
-# plt.show()
-#th = lutils.ptile(examPaper, 100-85)
 #thresh1 = np.where(examPaper > th, 255, 0)
 # show_images([thresh1])
 

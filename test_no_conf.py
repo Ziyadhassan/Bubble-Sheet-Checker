@@ -1,14 +1,14 @@
 from commonfunctions import show_images
 import cv2 as cv
-import typing
 import numpy as np
 import imutils
 from matplotlib import pyplot as plt
-from utils import ptile,ring_se
+from utils import ptile
 from skimage.filters import threshold_local
 import utils
 import functools
-import easyocr
+
+file = open('outputs','w')
 
 def get_y_dim(stripped_image):
     j = stripped_image.shape[1] // 2
@@ -44,9 +44,9 @@ def get_largest_cols(stripped_image):
     # Get the indices of all the columns that have
     # comparable sizes to the max column size.
     indices = [index for index, value in enumerate(diffs)
-               # If some column has the max column size -5%
+               # If some column has the max column size +-5%
                # we may include it.
-               if (max_dif * 0.95 < value)]
+               if (max_dif * 0.95 < value < max_dif * 1.05)]
     # Return the indicies of the columns we found.
     return [(flips[index], flips[index + 1]) for index in indices]
 
@@ -113,27 +113,10 @@ def sort_contours(cnts, method="top-to-bottom"):
 	# return the list of sorted contours and bounding boxes
 	return (cnts, boundingBoxes)
 
-
-def get_nth_peak(array: typing.List, n, x):
-    # Remove consequitive duplicates.
-    unq_array = [array[0]] + \
-                [val1 for val1, val2 in zip(array[1:], array[:-1])
-                 if val1 != val2]
-    # Pad the array with a min value so that the first and 
-    # last elements in the array can be selected.
-    min_val = min(unq_array) - 1
-    unq_array.insert(0, min_val)
-    unq_array.append(min_val)
-    # Get the peaks.
-    peaks = [val for left, val, right
-             in zip(unq_array[:-2], unq_array[1:-1], unq_array[2:])
-             if (left+x < val) and (val > right+x)]
-    return array.index(peaks[n - 1])
-
 ######################### start program #######################
-images = ["imgs/5.jpg","imgs/11.jpg","imgs/10.jpeg"]
+images = ["imgs/5.jpg","imgs/11.jpg"]
 ## take image
-image = cv.imread(images[2])
+image = cv.imread(images[0])
 orignalImage = image.copy()
 ## no need for resize
 # orignalImage = cv.resize(image,(800,800)) #resizing because opencv does not work well with bigger images
@@ -262,7 +245,7 @@ cv.waitKey(0)
 # cv.waitKey(0)
 
 ## sripts dilation 
-SE = np.ones((25, width))
+SE = np.ones((5, width))
 stripped_image = cv.dilate(thresh1, SE, iterations=1)
 cv.imshow("stripted", stripped_image)
 cv.waitKey(0)
@@ -274,15 +257,8 @@ striptedImage = orignalImage[upper:lower, :]
 cv.imshow("stripted", thresh1)
 cv.waitKey(0)
 
-SE = np.ones((thresh1.shape[0],10))
-stripped_image = cv.dilate(thresh1, SE, iterations=1)
-cv.imshow("stripted ver", stripped_image)
-cv.waitKey(0)
 col_indices = get_largest_cols(stripped_image)
-wraps = [striptedImage[:, col_index[0]:col_index[1]] for col_index in col_indices]
-for part in wraps:
-    cv.imshow("hi",cv.resize(part,(600,800)))
-    cv.waitKey(0)
+parts = [striptedImage[:, col_index[0]:col_index[1]] for col_index in col_indices]
 
 '''
 ## dilate the bubbles to make each group as contour
@@ -315,59 +291,40 @@ BubblesGroup = sort_contours(BubblesGroup, method="left-to-right")[0]
 print(len(BubblesGroup))
 '''
 
-# wraps = []
-# for subBubbles in BubblesGroup:
+wraps = []
+for subBubbles in BubblesGroup:
 
-#     subBubbles = reorder(subBubbles)
-#     #cv.drawContours(striptedImage, subBubbles, -1, (0, 255, 0), 20)
-#     #imgBigContour = drawRectangle(striptedImage, subBubbles, 2)
-#     #cv.imshow("Big Contours", cv.resize(striptedImage, (600, 800)))
-#     #cv.imshow()
-#     #cv.waitKey(0)
-#     pts1 = np.float32(subBubbles)
-#     pts2 = np.float32([[0, 0], [width, 0], [0, heigh], [width, heigh]])
-#     paperView = cv.getPerspectiveTransform(pts1, pts2)
-#     wrap = cv.warpPerspective(striptedImage, paperView, (width, heigh))
-#     wraps.append(wrap)
-#     cv.imshow("final", wrap)
-#     cv.waitKey(0)
+    subBubbles = reorder(subBubbles)
+    #cv.drawContours(striptedImage, subBubbles, -1, (0, 255, 0), 20)
+    #imgBigContour = drawRectangle(striptedImage, subBubbles, 2)
+    #cv.imshow("Big Contours", cv.resize(striptedImage, (600, 800)))
+    #cv.imshow()
+    #cv.waitKey(0)
+    pts1 = np.float32(subBubbles)
+    pts2 = np.float32([[0, 0], [width, 0], [0, heigh], [width, heigh]])
+    paperView = cv.getPerspectiveTransform(pts1, pts2)
+    wrap = cv.warpPerspective(striptedImage, paperView, (width, heigh))
+    wraps.append(wrap)
+    cv.imshow("final", wrap)
+    cv.waitKey(0)
 
 # تصحيييييح
 wrapGrey =cv.cvtColor( wraps[0] , cv.COLOR_BGR2GRAY)
-## 
 ret4, th4 = cv.threshold(wrapGrey, 0, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)
 # find contours in the thresholded image, then initialize
 # the list of contours that correspond to questions
-cv.imshow('before circle dilate',th4)
-cv.waitKey(0)
 
-###
-noOfWhites = []
-for i in range(0,100,1):
-    s1 = cv.erode(th4,ring_se(i,i+1))
-    whitePixels = np.sum(s1 == 255)
-    noOfWhites.append(whitePixels)
-
-#######
-x = 10
-########
-bubbleRadius = get_nth_peak(noOfWhites,2,x)
-print(noOfWhites,bubbleRadius)
-bubble_centers = cv.erode(th4,ring_se(bubbleRadius,bubbleRadius+1))
-cv.imshow("omar : ",bubble_centers)
-cv.waitKey(0)
-
-
-#th4 = th4[:,]
 
 
 ### tare2a atl3 beha el bubbles bs manf3tsh
 """
 # Initialize parameter settiing using cv2.SimpleBlobDetector
 params = cv.SimpleBlobDetector_Params()
+
 # Set Area filtering parameters
 params.filterByArea = True
 params.minArea = 20
+ 
 # Set Circularity filtering parameters
 params.filterByCircularity = False
 params.minCircularity = 0.9
@@ -424,7 +381,7 @@ for bubble in cnts:
 	# have an aspect ratio approximately equal to 1
 	print(w, h, asceptRatio)
     ## only get the small bubbles 
-	if w >= 10 and w<=50 and h >= 10 and h <= 50  and 0.90<asceptRatio<1.10  :
+	if w >= 10 and w<=50 and h >= 10 and h <= 50  :
             # cv.drawContours(wrap[0], [c], -1, (0, 255, 0), 20)
             # imgBigContour = drawRectangle(wrap[0], c, 2)
             # cv.imshow("Big Contours",wrap[0])
@@ -479,9 +436,9 @@ for (q, i) in enumerate(np.arange(0, len(questionCnts), 5)):
                     cv.imshow("Get bubbles",mask)
                     cv.waitKey(0)
                     ## factor
-                    f = 0
+                    f = 5
                     rect = mask[max(y-f,0):min(y+h+f,mask.shape[0]),max(x-f,0):min(x+w+f,mask.shape[1])]
-                    cv.imshow("Get rect",cv.resize(rect,(600,800)))
+                    cv.imshow("Get rect",rect)
                     cv.waitKey(0)
                     number_of_white_pix = np.sum(rect == 255)
                     percentage = (number_of_white_pix /(rect.shape[0]*rect.shape[1])) * 100
@@ -496,10 +453,8 @@ for (q, i) in enumerate(np.arange(0, len(questionCnts), 5)):
         print('row = ',row)
         ##TODO: test bs
         answers=[] 
-        max_ = max(row)
-
         for (k, r) in enumerate(row):
-            if r > 50.0:
+            if r > 30.0:
                 answers.append(k)
 
         # only one chosen answer

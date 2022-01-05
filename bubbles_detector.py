@@ -35,11 +35,11 @@
 
 from skimage.morphology import opening, closing, diameter_closing, disk
 from commonfunctions import *
-import lutils
+import utils
 
 def get_choices(img):
     # Scale the image in 0-255 scale then negate it.
-    img = 255 - lutils.conv2_255(img)
+    img = 255 - utils.conv2_255(img)
     show_images([img])
     
     img = median(img)
@@ -47,7 +47,7 @@ def get_choices(img):
     show_images([img])
     
     #th = (int(img.min()) + img.max()) // 2
-    th = lutils.ptile(img=img)
+    th = utils.ptile(img=img)
     print(th)
     
     img[img <= th] = 0

@@ -1,0 +1,5 @@
+easyocr==1.4.1
+imutils==0.5.4
+numpy==1.18.5
+XlsxWriter==1.2.9
+opencv_python==4.5.1.48

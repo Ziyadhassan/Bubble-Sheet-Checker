@@ -1,16 +1,8 @@
-from numpy.lib.type_check import imag
-from commonfunctions import show_images
-from commonfunctions import histogram
 import cv2 as cv
 import numpy as np
 import imutils
-from matplotlib import pyplot as plt
-from utils import ptile
-from skimage.filters import threshold_local
-import utils
-import functools
+#from matplotlib import pyplot as plt
 import easyocr
-import argparse
 import json
 
 #cv.imshow = lambda comment, image: None
@@ -188,7 +180,7 @@ def getId (idImageBinary,idImage):
         #cv.rectangle(idImage,(x,y),(x+w,y+h),(0,255,0),1)
         print(w,h,asceptRatio)
         if 0<asceptRatio<2 and 5<w<40 and 5<h<40:
-            character = idImage[y:y+h,x:x+w]
+            character = idImageBinary[y:y+h,x:x+w]
             #entities.append(rect) 
             blank = character
         
@@ -207,18 +199,19 @@ def getId (idImageBinary,idImage):
     return id
 
 def getName (nameBinary,name):
-    #cv.imshow("nameBinary",nameBinary )
-    #cv.waitKey(0)    
-    result = reader.readtext(name,detail=0)
+    # cv.imshow("nameBinary",nameBinary )
+    # cv.waitKey(0)    
+    result = reader.readtext(nameBinary,detail=0)
     return result[0]
 
 
 
 def removeNumberLine(image,imageTh):
-    SE = np.ones((100,5))
+    SE = np.ones((80,5))
     # dilation
     numberDilation = cv.dilate(th4, SE, iterations=1)
-
+    cv.imshow('vertical dilation',numberDilation)
+    cv.waitKey(0)
     cnts,hei = cv.findContours(numberDilation, cv.RETR_EXTERNAL,
 	cv.CHAIN_APPROX_SIMPLE)
 
@@ -228,16 +221,16 @@ def removeNumberLine(image,imageTh):
         (x, y, w, h) = cv.boundingRect(c)
         if h >= image.shape[0] // 2: 
             sripts.append(c)
-            #rect = cv.rectangle(image11,(x,y),(x+w,y+h),(0,255,0),1)
+            #rect = cv.rectangle(image,(x,y),(x+w,y+h),(0,255,0),1)
             #cv.imshow('rects',rect)
             #cv.waitKey(0)
     (x, y, w, h) =  cv.boundingRect(sripts[0])
-    cv.imshow('8araboly',imageTh[:,x+w:])
+    cv.imshow('columns',imageTh[:,x+w:])
     cv.waitKey(0)
     return imageTh[:,x+w:],image[:,x+w:]
 
 def checkAnswers(row):
-    factor = 10
+    factor = 9
     valid = True
     max_ = max(row)
     index = row.index(max_)
@@ -253,23 +246,62 @@ def checkAnswers(row):
    
  ######################### start program #######################
 
+def removeBorders(image):
+    removed_h = int((image.shape[0]*0.05)//2)
+    removed_w = int((image.shape[1]*0.08)//2)
+    print('rem_h',removed_h,'rem_w',removed_w)
+    image[:,:removed_w] = 0
+    image[:,image.shape[1]-removed_w:] = 0
+    image[:removed_h,:] = 0
+    image[image.shape[0]-removed_h:,:] = 0
+    return image
 
-        
+def BorderZeros(image):
+    image[image.shape[0]-1,:]=0
+    image[0,:]=0
+    image[:,image.shape[1]-1]=0
+    image[:,0]=0
+    return image
+
+
+def ExtractIdandName(headerBinary,header):
+
+    cnts,hei = cv.findContours(headerBinary, cv.RETR_EXTERNAL,
+        cv.CHAIN_APPROX_SIMPLE)
+
+    ## sort contours by area
+    cnts = sorted(cnts, key=cv.contourArea, reverse=True)[:2]
+
+    ## sort contours from left to right to ensure that name comes before id
+    cnts = sort_contours(cnts, method="left-to-right")[0]
+
+    ## name , id
+    entities = []
+    for c in cnts:
+        (x, y, w, h) = cv.boundingRect(c)
+        asceptRatio = w / float(h)
+        cv.rectangle(header,(x,y),(x+w,y+h),(0,255,0),1)
+        print(w,h,asceptRatio)
+        if  w>20 and h >15:
+            f=5
+            rectBinary = headerBinary[min(y+f,headerBinary.shape[0]):min(y+h-f,headerBinary.shape[0]),max(x+f,0):max(x+w-f,0)]
+            rect =  header[min(y+f,headerBinary.shape[0]):min(y+h-f,headerBinary.shape[0]),max(x+f,0):max(x+w-f,0)]
+            entities.append((rectBinary,rect)) 
+            cv.imshow("Bigs", rect)
+            cv.waitKey(0)
+            cv.destroyAllWindows()
+    return entities
+
 output = {}
 modelAnswer = ['B']*50
 models = []
 Choices = ['A','B','C','D','E']
-images = ["imgs/9.jpeg","imgs/10.jpeg","imgs/11.jpg","imgs/12.jpeg","imgs/13.jpeg","imgs/14.jpeg","imgs/15.jpeg"]
+images = ["imgs/9.jpeg","imgs/10.jpeg","imgs/11.jpg","imgs/12.jpeg","imgs/13.jpeg","imgs/14.jpeg","imgs/15.jpeg","imgs/17.jpeg","imgs/20.jpeg","imgs/21.jpeg","imgs/22.jpeg"]
 ## take image
 image = cv.imread(images[-1])
 orignalImage = image.copy()
-orignalImage[orignalImage.shape[0]-1,:]=0
-orignalImage[0,:]=0
-orignalImage[:,orignalImage.shape[1]-1]=0
-orignalImage[:,0]=0
-isScannered = False
 
-
+orignalImage = BorderZeros(orignalImage)
 # get width and height
 heigh = orignalImage.shape[0]
 width = orignalImage.shape[1]
@@ -277,46 +309,33 @@ width = orignalImage.shape[1]
 # convert image into grey scale
 grayImage = cv.cvtColor(orignalImage, cv.COLOR_BGR2GRAY)
 
-#orignalImage =  recursiveThreshold(grayImage,grayImage.shape[0]//20)
-# cv.imshow('orignalImage', orignalImage)
-# cv.waitKey(0)
+isScannered = False
 
-# get histogram
+
+
+
+
+# # get histogram
 dst = cv.calcHist(grayImage, [0], None, [256], [0, 256])
-plt.hist(grayImage.ravel(), 256, [0, 256])
-plt.title('Histogram for gray scale image')
-plt.show()
+# plt.hist(grayImage.ravel(), 256, [0, 256])
+# plt.title('Histogram for gray scale image')
+# plt.show()
 
 # make gaussian blur
 blur = cv.GaussianBlur(grayImage, (5, 5), 0)
-ret3, th3 = cv.threshold(blur, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
-print(ret3)
-cv.imshow('thresh', th3)
-cv.waitKey(0)
+##TODO:
 
-"""
-# structure element
-SE =np.ones((5,5),np.uint8)
-# opening
-openingImage = cv.morphologyEx(blur, cv.MORPH_OPEN, SE)
-# followed by closing with same SE
-closingImage = cv.morphologyEx(blur, cv.MORPH_CLOSE, SE)
-"""
+
+
 
 # m7tagen n7dd el threshold @zizo
 med_val = np.median(blur)
 lower = int(max(0, 0.7*med_val))
 upper = int(min(255, 1.3*med_val))
 edged = cv.Canny(blur, lower, upper)
-cv.imshow("Outline", edged)
-cv.waitKey(0)
+# cv.imshow("Outline", edged)
+# cv.waitKey(0)
 
-
-## msh 3arf lsa btboz leh??
-# structure element
-# SE = np.ones((5,5))
-# Dilation = cv.dilate(edged,SE,iterations = 2)
-# erosion = cv.erode(edged,SE,iterations = 1)
 
 
 """
@@ -324,17 +343,17 @@ save all found contours in contours
 """
 contours, hirerarchy = cv.findContours(
     edged.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
 ## the paper is the biggest contour in image
 biggest, maxArea = biggestContour(contours, width*heigh//5)
 
 # biggest are 4 points of our biggest contour
-print(biggest)
 if biggest.size != 0:
     # reorder these 4 points
     biggest = reorder(biggest)
     cv.drawContours(image, biggest, -1, (0, 255, 0), 20)
     imgBigContour = drawRectangle(image, biggest, 2)
-    cv.imshow("Big Contours", cv.resize(image, (600, 800)))
+    cv.imshow("paper outline", cv.resize(image, (600, 800)))
     cv.waitKey(0)
    
 
@@ -344,167 +363,88 @@ if biggest.size != 0:
     pts2 = np.float32([[0, 0], [width, 0], [0, heigh], [width, heigh]])
     paperView = cv.getPerspectiveTransform(pts1, pts2)
     wrap = cv.warpPerspective(orignalImage, paperView, (width, heigh))
-    cv.imshow("final", cv.resize(wrap, (600, 800)))
+    cv.imshow("get wrap", cv.resize(wrap, (600, 800)))
     cv.waitKey(0)
     cv.destroyAllWindows()
-# else:
-#     cnts = sorted(contours, key=cv.contourArea, reverse=True)[:1]
-#     (x, y, w, h) = cv.boundingRect(cnts[0])
-#     print('area : ',w*h)
-#     test = cv.rectangle(orignalImage,(x,y),(x+w,y+h),(0,255,0),1)
-#     cv.imshow('a',test)
-#     cv.waitKey(0)
-# if their is no biggest contour (contour with large size)
-#   then the image is already the exam paper so take the greyImage
+
 
 
 
 if biggest != []:
     examPaper = wrap
+    orignalExampaper = wrap.copy()
     examPaper = cv.cvtColor(examPaper, cv.COLOR_BGR2GRAY)
-    ## TODO:
-    # examPaper[0:40,:] = 0  
-    # examPaper[examPaper.shape[0]-40:examPaper.shape[0],:] = 0  
-    # examPaper[:,0:40] = 0  
-    # examPaper[:,examPaper.shape[1]-40:examPaper.shape[1]] = 0  
 
 else:
+    orignalExampaper = orignalImage
     examPaper = grayImage
 
 
+# threshold of exam paper
+examPaper = recursiveThreshold(examPaper, 50)*255
 
-## histogram of the examPaper itself
-examPaper = recursiveThreshold(examPaper, 40)*255
+
+cv.imshow("exampaper", cv.resize(examPaper, (600, 800)))
+cv.waitKey(0)
+# Inverte Image color
 examPaper = 255 - examPaper
-examPaper[:,:30] = 0
-examPaper[:,examPaper.shape[1]-30:] = 0
-examPaper[:30,:] = 0
-examPaper[examPaper.shape[0]-30:,:] = 0
+# remove noise from borders
+thresh1 = removeBorders(examPaper)
 
 
-cv.imshow("bubble group", cv.resize(examPaper, (600, 800)))
-cv.waitKey(0)
-
-cv.destroyAllWindows()
-plt.hist(examPaper.ravel(), 256, [0, 256])
-plt.title('Histogram for gray scale image')
-plt.show()
-
-
-"""
-####   hsv thresholding   (tare2a 7lwa mmkn nst5dmha)
-imgHsv = cv.cvtColor(examPaper, cv.COLOR_BGR2HSV)
-
-# Define lower/upper color
-lower = np.array([0, 0, 180])
-upper = np.array([180, 20, 255])
-
-# Check the region of the image actually with a color in the range defined below
-# inRange returns a matrix in black and white
-bw = cv.inRange(imgHsv, lower, upper)
-print(bw)
-"""
-
-
-#TODO: 3ayzen nzbt el thresholding
-
-#thresh1 = np.where(examPaper > th, 255, 0)
-# show_images([thresh1])
-
-# ret, thresh1 = cv.threshold(
-#     examPaper, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU,
-# )
-#ret, thresh1 = cv.threshold(examPaper, 135, 255, cv.THRESH_BINARY_INV)
-
-
-
-#TODO: 
-#setupThreshold()
-
-thresh1 = examPaper
-cv.imshow("threshold", thresh1)
+cv.imshow("after threshold", cv.resize(thresh1, (600, 800)))
 cv.waitKey(0)
 cv.destroyAllWindows()
-
-
-
-
-# contours, hirerarchy = cv.findContours(
-#     dilation.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
 
 ## sripts dilation 
-for i in range(3,100,1):
+for i in range(9,100,1):
     SE = np.ones((i, width))
     sriptedImage = cv.dilate(thresh1, SE, iterations=1)
     U,D = get_y_dim(sriptedImage)
-    if D - U > heigh//2:
+    if D - U > heigh*0.65:
         break
     cv.imshow("stripted", sriptedImage)
     cv.waitKey(0)
     cv.destroyAllWindows()
 
-## get the sripts and (biggest sripts is the bubbles group)
 
 upper, lower = get_y_dim(sriptedImage)
+## get the header of the image which contains id and name
 headerBinary = thresh1[:upper,:]
-header = examPaper[:upper,:]
+header = orignalExampaper[:upper,:]
+
+## get the area contains bubbles
 thresh1 = thresh1[upper:lower, :]
-striptedImage = orignalImage[upper:lower, :]
+striptedImage = orignalExampaper[upper:lower, :]
+
 cv.imshow("stripted", thresh1)
 cv.waitKey(0)
 
-cv.imshow("idImage", header)
+cv.imshow("idImage", headerBinary)
 cv.waitKey(0)
 cv.destroyAllWindows()
 
 ######################  get id ##################################
-cnts,hei = cv.findContours(headerBinary, cv.RETR_EXTERNAL,
-	cv.CHAIN_APPROX_SIMPLE)
 
-cnts = sorted(cnts, key=cv.contourArea, reverse=True)[:2]
-cnts = sort_contours(cnts, method="left-to-right")[0]
 
-## assume that name is allows at the left of the id
-print(cnts)
-## name , id
-entities = []
-for c in cnts:
-    (x, y, w, h) = cv.boundingRect(c)
-    asceptRatio = w / float(h)
-    cv.rectangle(header,(x,y),(x+w,y+h),(0,255,0),1)
-    print(w,h,asceptRatio)
-    if  w>20 and h >15:
-        #rectBinary = headerBinary[y:y+h,x:x+w]
-        f=5
-        rectBinary = headerBinary[min(y+f,headerBinary.shape[0]):min(y+h-f,headerBinary.shape[0]),max(x+f,0):max(x+w-f,0)]
-        # rect =  header[y:y+h,x:x+w]
-        rect =  header[min(y+f,headerBinary.shape[0]):min(y+h-f,headerBinary.shape[0]),max(x+f,0):max(x+w-f,0)]
-        entities.append((rectBinary,rect)) 
-        cv.imshow("Bigs", rect)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-
+entities = ExtractIdandName (headerBinary,header)
 nameBinary = entities[0][0]
 name = entities[0][1]
 idBinary = entities[1][0]
 id = entities[1][1]
 
+
 id = getId(idBinary,id)
 name = getName(nameBinary,name)
+
 
 print('student name : ',name)
 print('student id = ',id)
 output['name'] = name
 output['id'] = id
 
-#print(idBinary.shape)
-
-
 ########################################################
-
-
-
 
 
 
@@ -520,7 +460,6 @@ cv.destroyAllWindows()
 contours, hirerarchy = cv.findContours(
     dilation.copy(), cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
 
-print(len(contours))
 # sort contours by area
 contours = sorted(contours, key=cv.contourArea, reverse=True)
 
@@ -537,78 +476,66 @@ for con in contours:
     if len(approx) == 4:
         BubblesGroup.append(approx)
 
+## sort contours from left to right
+## to ensure that bubbles comes in correct order
 BubblesGroup = sort_contours(BubblesGroup, method="left-to-right")[0]
-print(len(BubblesGroup))
+
+
 wraps = []
+
 iteration = 1
+score = 0 
 for subBubbles in BubblesGroup:
 
     subBubbles = reorder(subBubbles)
-    #cv.drawContours(striptedImage, subBubbles, -1, (0, 255, 0), 20)
-    #imgBigContour = drawRectangle(striptedImage, subBubbles, 2)
-    #cv.imshow("Big Contours", cv.resize(striptedImage, (600, 800)))
-    #cv.imshow()
-    #cv.waitKey(0)
     pts1 = np.float32(subBubbles)
-    pts2 = np.float32([[0, 0], [width, 0], [0, heigh], [width, heigh]])
+    pts2 = np.float32([[0, 0], [striptedImage.shape[1], 0], [0, striptedImage.shape[0]], [striptedImage.shape[1], striptedImage.shape[0]]])
     paperView = cv.getPerspectiveTransform(pts1, pts2)
-    wrap = cv.warpPerspective(striptedImage, paperView, (width, heigh))
+    wrap = cv.warpPerspective(striptedImage, paperView, (striptedImage.shape[1], striptedImage.shape[0]))
     wraps.append(wrap)
     cv.imshow("final", wrap)
     cv.waitKey(0)
     cv.destroyAllWindows()
 
-    # تصحيييييح
+    # Start marking the Bubbles SubGroup
   
     wrapGrey =cv.cvtColor( wrap , cv.COLOR_BGR2GRAY)
-    th4 = recursiveThreshold(wrapGrey,40)*255
-    #ret4, th4 = cv.threshold(wrapGrey, 0, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)
-    # find contours in the thresholded image, then initialize
-    # the list of contours that correspond to questions
-    cv.imshow("number line th4", th4)
-    cv.waitKey(0)
-    ##########################################
     
-    #cv.imshow("number line dilation", numberDilation)
-    #cv.waitKey(0)
-    imageTh,wrap = removeNumberLine(wrap,th4)
-    wrapGrey =cv.cvtColor( wrap , cv.COLOR_BGR2GRAY)
-    #cv.imshow("number line dilation1", numberDilation)
-    #cv.waitKey(0)
-    ##########################################
-    model = wrap.copy()
+    
+    ret4, th4 = cv.threshold(wrapGrey, 0, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)
+    #th4 = recursiveThreshold(wrapGrey,wrapGrey.40)*255
+    
+    cv.imshow("number line th4", cv.resize(th4,(600,800)))
+    cv.waitKey(0)
+    
+    # remove number from image
+    imageTh,wrapBubbles = removeNumberLine(wrap,th4)
+    cv.imshow('view',wrapBubbles)
+    cv.waitKey(0)
+    # convert image to grey scale
+    wrapGreyBubbles =cv.cvtColor( wrapBubbles , cv.COLOR_BGR2GRAY)
+    
+
+    model = wrapBubbles.copy()
     ## get the bubbles
     cnts = cv.findContours(imageTh.copy(), cv.RETR_EXTERNAL,
         cv.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     print(len(cnts))
     questionCnts = []
-    # loop over the contours
-    # cv.imshow("Big",wrapGrey)
-    # cv.waitKey(0)
+
     for bubble in cnts:
         # compute the bounding box of the contour, then use the
         # bounding box to derive the aspect ratio
         (x, y, w, h) = cv.boundingRect(bubble)
         asceptRatio = w / float(h)
-        # in order to label the contour as a question, region
-        # should be sufficiently wide, sufficiently tall, and
-        # have an aspect ratio approximately equal to 1
-        print(w, h, asceptRatio)
+        #print(w, h, asceptRatio)
         ## only get the small bubbles 
-        if w >= 10 and w<=50 and h >= 10 and h <= 50  :
-                # cv.drawContours(wrap[0], [c], -1, (0, 255, 0), 20)
-                # imgBigContour = drawRectangle(wrap[0], c, 2)
-                # cv.imshow("Big Contours",wrap[0])
-                # cv.waitKey(0)
-                #image = cv.rectangle(wraps[0],(x +w//2,y+h//2),(w,h),(0,255,0),2)
+        if w >= 10  and h >= 10 :
                 questionCnts.append(bubble)
-                # draw bubbles contour
-                image = cv.drawContours(wrap, bubble, -1, (0, 255, 0), 3)
-                #cv.imshow("Get bubbles",image)
-                #cv.waitKey(0)
+                image = cv.drawContours(wrapBubbles, bubble, -1, (0, 255, 0), 3)
 
-    #print(questionCnts)
+    #draw bubbles
     cv.imshow("Get bubbles",image)
     cv.waitKey(0)
 
@@ -620,33 +547,28 @@ for subBubbles in BubblesGroup:
     correctAnwers = 0
     chooses = ['A','B','C','D','E']
 
-    thresh = cv.threshold(wrapGrey, 0, 255,
+    #thresh = th4
+    thresh=  cv.threshold(wrapGreyBubbles, 0, 255,
         cv.THRESH_BINARY_INV | cv.THRESH_OTSU)[1]
+
+ 
     # each question has 5 possible answers, to loop over the
     # question in batches of 5
-    
-    for (q, i) in enumerate(np.arange(0, len(questionCnts), 5)):
+    for (q, i) in enumerate(np.arange(0, len(questionCnts), len(chooses))):
 
         # bubbled answer
             # sort each row form left to right 
-            cnts = sort_contours(questionCnts[i:i + 5],method="left-to-right")[0]
-            bubbled = None
+            cnts = sort_contours(questionCnts[i:i +  len(chooses)],method="left-to-right")[0]
             # loop over the sorted contours
             row = []
             for (j, bubble) in enumerate(cnts):
-                        #print(' : ' , bubble)
-                    
-                # construct a mask that reveals only the current
-                # "bubble" for the question
                         mask = np.zeros(thresh.shape, dtype="uint8")
                         cv.drawContours(mask, [bubble], -1, 255, -1)
-                        # apply the mask to the thresholded image, then
                         # count the number of non-zero pixels in the
                         # bubble area
                         mask = cv.bitwise_and(thresh, thresh, mask=mask)
                         (x, y, w, h) = cv.boundingRect(bubble)
                         print('x: ',x,'y : ',y,'w :',w,'h :',h)
-                        #rect = cv.rectangle(mask,(x,y),(x+w,y+h),255,2)
                         cv.imshow("Get bubbles",mask)
                         cv.waitKey(0)
                         ## factor
@@ -654,58 +576,43 @@ for subBubbles in BubblesGroup:
                         rect = mask[max(y-f,0):min(y+h+f,mask.shape[0]),max(x-f,0):min(x+w+f,mask.shape[1])]
                         cv.imshow("Get rect",rect)
                         cv.waitKey(0)
+                        ## count the number of white pixels 
                         number_of_white_pix = np.sum(rect == 255)
                         percentage = (number_of_white_pix /(rect.shape[0]*rect.shape[1])) * 100
                         row.append(percentage)
 
-                        # total = cv.countNonZero(mask)
-                        # #print(total)
-                        # if bubbled is None or total > bubbled[0]:
-                        #     bubbled = (total, j)
-                        #     print(bubbled)
+
 
             print('row = ',row)
-            ##TODO: test bs
             
             valid,choice = checkAnswers(row)
             if valid:
                 if Choices[choice] == modelAnswer[iteration-1]:
+                    #set color to green
                     color = (0, 255, 0)
                     print('corrent')
+                    score += 1
                 else:
+                    #set color to red
                     color = (0, 0, 255)
                     print('wrong')
                 cv.drawContours(model, [cnts[choice]], -1, color, 3)
+                output['q'+str(iteration)] = Choices[choice]
             else:
                 color = (255,0,0)
                 cv.drawContours(model, cnts, -1, color, 3)
                 print('invalid')
-
-            
-           
+                output['q'+str(iteration)] = 'in valid answer'
+    
             iteration += 1
     models.append(model)
 
-
+output['score'] = score
 file.write(json.dumps(output))
 
 for m in models:
     cv.imshow('Student Answers',m)
     cv.waitKey(0)
-
-
-
-    # for con in contours:
-    #     # approximate the contour
-    #     peri = cv.arcLength(con, True)
-    #     if cv.contourArea(con) < (striptedImage.shape[0]*striptedImage.shape[1]) // 10:
-    #         break
-    #     approx = cv.approxPolyDP(con, 0.02 * peri, True)
-    #     # if our approximated contour has four points, then we
-    #     # can assume that we have found our screen
-    #     if len(approx) == 4:
-    #         BubblesGroup.append(approx)
-
 
 file.close()
 

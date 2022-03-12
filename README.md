@@ -15,7 +15,7 @@ We can marking the MCQ exams using Image Processing techniques using OpenCV.
 ## Technologies
 <br>
 <div align='center'>
-<img src="https://github.com/radwaahmed2132000/Auto-Grader/raw/main/Demo/python.png" width="25%"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://github.com/radwaahmed2132000/Auto-Grader/raw/main/Demo/image.png" width="25%"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<img src="/Demo/python.png" width="25%"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="/Demo/image.png" width="25%"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 </div>
 
 ## Demo

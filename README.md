@@ -33,9 +33,9 @@ name and id in Excel sheet by just scanning the papers of answer.
 
 ## Features
 
-- Marking the mcq from just a scanning photo
-- Export name and id in excel sheet
-- Export student answer in each question in excel sheet
+- Marking the MCQ from just a scanning photo
+- Export Name and ID in Excel sheet
+- Export student answer in each question in Excel sheet
 - Take multiple photos at once
 
 
@@ -51,9 +51,9 @@ To deploy this project run
 ```
 
 
-## Environment Variables
+## Libraries
 
-To run this project, you will need to add the following environment variables to your .env file
+To run this project, you will need to get the follow the following libraries.(or just run "pip install -r requirements.txt")
 
 `easyocr==1.4.1`
 `imutils==0.5.4`

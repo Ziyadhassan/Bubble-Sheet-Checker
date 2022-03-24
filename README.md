@@ -1,7 +1,7 @@
 
 # Bubble Sheet Checker
 
-We can marking the MCQ exams using Image Processing techniques using OpenCV.
+We can mark the MCQ exams using Image Processing techniques using OpenCV.
 ## 🔗 Authors
 
 [![abdelhamid](https://img.shields.io/badge/Ahmed_Abdelhamed-000?style=for-the-badge&logo=ko-fi&logoColor=white)](https://github.com/Ahmed-Mohamed7)
